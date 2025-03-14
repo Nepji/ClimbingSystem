@@ -1,10 +1,10 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
-#include "ClimbingSystemGameMode.h"
-#include "ClimbingSystemCharacter.h"
+#include "CSGameMode.h"
+#include "..\Public\CSCharacter.h"
 #include "UObject/ConstructorHelpers.h"
 
-AClimbingSystemGameMode::AClimbingSystemGameMode()
+ACSGameMode::ACSGameMode()
 {
 	// set default pawn class to our Blueprinted character
 	static ConstructorHelpers::FClassFinder<APawn> PlayerPawnBPClass(TEXT("/Game/ThirdPerson/Blueprints/BP_ThirdPersonCharacter"));

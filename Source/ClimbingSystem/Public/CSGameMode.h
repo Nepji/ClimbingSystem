@@ -4,15 +4,15 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
-#include "ClimbingSystemGameMode.generated.h"
+#include "CSGameMode.generated.h"
 
 UCLASS(minimalapi)
-class AClimbingSystemGameMode : public AGameModeBase
+class ACSGameMode : public AGameModeBase
 {
 	GENERATED_BODY()
 
 public:
-	AClimbingSystemGameMode();
+	ACSGameMode();
 };
 
 
