@@ -22,6 +22,7 @@ class CLIMBINGSYSTEM_API UCSMovementComponent : public UCharacterMovementCompone
 public:
 	void ToggleClimbing(bool bEnableClimb);
 	bool IsClimbing() const;
+	FORCEINLINE FVector GetClimbableSurfaceNormal() const { return CurrentClimbableSurfaceNormal;}
 public:
 	UCSMovementComponent();
 
@@ -30,24 +31,37 @@ protected:
 	virtual void OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode) override;
 	virtual void PhysCustom(float deltaTime, int32 Iterations) override;
 
+	virtual float GetMaxSpeed() const override;
+	virtual float GetMaxAcceleration() const override;
+
 private:
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category = "Character Movement: Climbing", meta = (AllowPrivateAccess = "true"))
 	TArray<TEnumAsByte<EObjectTypeQuery>> ClimbableSurfaceTraceTypes;
 	
-	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category = "Character Movement: Climbing", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category = "Character Movement: Climbing Advanced", meta = (AllowPrivateAccess = "true"))
 	float ClimbCapsuleTraceRadius = 50.0f;
 
-	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category = "Character Movement: Climbing", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category = "Character Movement: Climbing Advanced", meta = (AllowPrivateAccess = "true"))
 	float ClimbCapsuleTraceHalfHeight = 70.0f;
 
-	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category = "Character Movement: Climbing", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category = "Character Movement: Climbing Advanced", meta = (AllowPrivateAccess = "true"))
 	float EyeTraceDistance = 100.f;
 
-	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category = "Character Movement: Climbing", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category = "Character Movement: Climbing Advanced", meta = (AllowPrivateAccess = "true"))
 	float CapsuleHalfHeight = 48.f;
+
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category = "Character Movement: Climbing Advanced", meta = (AllowPrivateAccess = "true"))
+	float MaxDegreeToSurface = 10.f;
 
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category = "Character Movement: Climbing", meta = (AllowPrivateAccess = "true"))
 	float MaxBreakClimbDeceleration = 400.f;
+
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category = "Character Movement: Climbing", meta = (AllowPrivateAccess = "true"))
+	float MaxClimbSpeed = 200.f;
+
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category = "Character Movement: Climbing", meta = (AllowPrivateAccess = "true"))
+	float MaxClimbAcceleration = 300.f;
+
 
 private:
 	TArray<FHitResult> ClimbableSurfacesTraceResults;
@@ -61,7 +75,7 @@ private:
 	FHitResult DoLineSingleByObject(const FVector& Start, const FVector& End, bool bShowDebugShape = false, bool bDrawPersistentShapes = false);
 
 	bool TraceClimbableSurfaces();
-	FHitResult TraceFromEyeHeight(float TraceDistance, float TraceStartOffset = 0.f);
+	FHitResult TraceFromEyeHeight(float TraceDistance, float TraceStartOffset = 0.f,bool bShowDebugShape = false,bool bDrawPersistantShapes = false);
 	bool CanStartClimbing();
 
 	void StartClimbing();
@@ -69,4 +83,10 @@ private:
 
 	void PhysClimb(float deltaTime, int32 Iterations);
 	void ProcessClimbableSurfaceInfo();
+
+	
+	bool ShouldStopClimbing();
+
+	FQuat GetClimbRotation(float DeltaTime);
+	void SnapMovementToClimbableSurface(float DeltaTime);
 };

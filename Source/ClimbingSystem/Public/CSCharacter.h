@@ -60,6 +60,9 @@ protected:
 	/** Called for movement input */
 	void Move(const FInputActionValue& Value);
 
+	void HandleGroundMovementInput(const FInputActionValue& Value);
+	void HandleClimbMovementInput(const FInputActionValue& Value);
+
 	/** Called for looking input */
 	void Look(const FInputActionValue& Value);
 

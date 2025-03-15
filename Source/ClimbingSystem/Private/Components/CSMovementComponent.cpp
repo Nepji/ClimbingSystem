@@ -46,7 +46,9 @@ void UCSMovementComponent::OnMovementModeChanged(EMovementMode PreviousMovementM
 	{
 		bOrientRotationToMovement = true;
 		CharacterOwner->GetCapsuleComponent()->SetCapsuleHalfHeight(CapsuleHalfHeight * 2);
-
+		const FRotator DirtyRotator = UpdatedComponent->GetComponentRotation();
+		const FRotator CleanStandRotation = FRotator(0.f, DirtyRotator.Yaw, 0.f);
+		UpdatedComponent->SetRelativeRotation(CleanStandRotation);
 		StopMovementImmediately();
 	}
 
@@ -54,12 +56,28 @@ void UCSMovementComponent::OnMovementModeChanged(EMovementMode PreviousMovementM
 }
 void UCSMovementComponent::PhysCustom(float deltaTime, int32 Iterations)
 {
-	if(IsClimbing())
+	if (IsClimbing())
 	{
-		PhysClimb(deltaTime,Iterations);
+		PhysClimb(deltaTime, Iterations);
 	}
-	
+
 	Super::PhysCustom(deltaTime, Iterations);
+}
+float UCSMovementComponent::GetMaxSpeed() const
+{
+	if (IsClimbing())
+	{
+		return MaxClimbSpeed;
+	}
+	return Super::GetMaxSpeed();
+}
+float UCSMovementComponent::GetMaxAcceleration() const
+{
+	if (IsClimbing())
+	{
+		return MaxClimbAcceleration;
+	}
+	return Super::GetMaxAcceleration();
 }
 TArray<FHitResult> UCSMovementComponent::DoCapsuleTraceMultiByObject(const FVector& Start, const FVector& End, bool bShowDebugShape, bool bDrawPersistentShapes)
 {
@@ -130,16 +148,16 @@ bool UCSMovementComponent::TraceClimbableSurfaces()
 
 	ClimbableSurfacesTraceResults = DoCapsuleTraceMultiByObject(Start, End, true);
 
-	return ClimbableSurfacesTraceResults.IsEmpty();
+	return !ClimbableSurfacesTraceResults.IsEmpty();
 }
-FHitResult UCSMovementComponent::TraceFromEyeHeight(float TraceDistance, float TraceStartOffset)
+FHitResult UCSMovementComponent::TraceFromEyeHeight(float TraceDistance, float TraceStartOffset, bool bShowDebugShape, bool bDrawPersistantShapes)
 {
 	const FVector ComponentLocation = UpdatedComponent->GetComponentLocation();
 	const FVector EyeHeightOffset = UpdatedComponent->GetUpVector() * (CharacterOwner->BaseEyeHeight + TraceStartOffset);
 	const FVector Start = ComponentLocation + EyeHeightOffset;
 	const FVector End = Start + UpdatedComponent->GetForwardVector() * TraceDistance;
 
-	return DoLineSingleByObject(Start, End);
+	return DoLineSingleByObject(Start, End, true, true);
 }
 bool UCSMovementComponent::CanStartClimbing()
 {
@@ -166,9 +184,15 @@ void UCSMovementComponent::PhysClimb(float deltaTime, int32 Iterations)
 	{
 		return;
 	}
+
 	TraceClimbableSurfaces();
 	ProcessClimbableSurfaceInfo();
-	
+
+	if (ShouldStopClimbing())
+	{
+		StopClimbing();
+	}
+
 	RestorePreAdditiveRootMotionVelocity();
 
 	if (!HasAnimRootMotion() && !CurrentRootMotion.HasOverrideVelocity())
@@ -182,7 +206,7 @@ void UCSMovementComponent::PhysClimb(float deltaTime, int32 Iterations)
 	const FVector Adjusted = Velocity * deltaTime;
 	FHitResult Hit(1.f);
 
-	SafeMoveUpdatedComponent(Adjusted, UpdatedComponent->GetComponentQuat(), true, Hit);
+	SafeMoveUpdatedComponent(Adjusted, GetClimbRotation(deltaTime), true, Hit);
 
 	if (Hit.Time < 1.f)
 	{
@@ -194,18 +218,20 @@ void UCSMovementComponent::PhysClimb(float deltaTime, int32 Iterations)
 	{
 		Velocity = (UpdatedComponent->GetComponentLocation() - OldLocation) / deltaTime;
 	}
+
+	SnapMovementToClimbableSurface(deltaTime);
 }
 void UCSMovementComponent::ProcessClimbableSurfaceInfo()
 {
 	CurrentClimbableSurfaceLocation = FVector::ZeroVector;
 	CurrentClimbableSurfaceNormal = FVector::ZeroVector;
 
-	if(ClimbableSurfacesTraceResults.IsEmpty())
+	if (ClimbableSurfacesTraceResults.IsEmpty())
 	{
 		return;
 	}
 
-	for(const FHitResult& TraceHitResult : ClimbableSurfacesTraceResults)
+	for (const FHitResult& TraceHitResult : ClimbableSurfacesTraceResults)
 	{
 		CurrentClimbableSurfaceLocation += TraceHitResult.ImpactPoint;
 		CurrentClimbableSurfaceNormal += TraceHitResult.ImpactNormal;
@@ -213,4 +239,42 @@ void UCSMovementComponent::ProcessClimbableSurfaceInfo()
 
 	CurrentClimbableSurfaceLocation /= ClimbableSurfacesTraceResults.Num();
 	CurrentClimbableSurfaceNormal = CurrentClimbableSurfaceNormal.GetSafeNormal();
+}
+bool UCSMovementComponent::ShouldStopClimbing()
+{
+	if (ClimbableSurfacesTraceResults.IsEmpty())
+	{
+		return true;
+	}
+
+	const float DotResult = FVector::DotProduct(CurrentClimbableSurfaceNormal, FVector::UpVector);
+	const float DegreeDiff = FMath::RadiansToDegrees(FMath::Acos(DotResult));
+
+	return DegreeDiff <= MaxDegreeToSurface;
+}
+FQuat UCSMovementComponent::GetClimbRotation(float DeltaTime)
+{
+	const FQuat CurrentQuat = UpdatedComponent->GetComponentQuat();
+	if (HasAnimRootMotion() || CurrentRootMotion.HasOverrideVelocity())
+	{
+		return CurrentQuat;
+	}
+
+	const FQuat TargetQuat = FRotationMatrix::MakeFromX(-CurrentClimbableSurfaceNormal).ToQuat();
+
+	return FMath::QInterpTo(CurrentQuat, TargetQuat, DeltaTime, 5.0f);
+}
+void UCSMovementComponent::SnapMovementToClimbableSurface(float DeltaTime)
+{
+	const FVector ComponentForward = UpdatedComponent->GetForwardVector();
+	const FVector ComponentLocation = UpdatedComponent->GetComponentLocation();
+
+	const FVector ProjectedCharacterToSurface = (CurrentClimbableSurfaceLocation - ComponentLocation).ProjectOnTo(ComponentForward);
+
+	const FVector SnapVector = -CurrentClimbableSurfaceNormal * ProjectedCharacterToSurface.Length();
+
+	UpdatedComponent->MoveComponent(
+		SnapVector * DeltaTime * MaxClimbSpeed, //
+		UpdatedComponent->GetComponentQuat(),	//
+		true);
 }
