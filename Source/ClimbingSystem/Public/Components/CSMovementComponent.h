@@ -6,6 +6,10 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "CSMovementComponent.generated.h"
 
+class UAnimMontage;
+class UAnimInstance;
+
+
 UENUM(BlueprintType)
 namespace ECustomMovementMode
 {
@@ -19,14 +23,18 @@ UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class CLIMBINGSYSTEM_API UCSMovementComponent : public UCharacterMovementComponent
 {
 	GENERATED_BODY()
+
 public:
+	UCSMovementComponent();
+	
 	void ToggleClimbing(bool bEnableClimb);
 	bool IsClimbing() const;
 	FORCEINLINE FVector GetClimbableSurfaceNormal() const { return CurrentClimbableSurfaceNormal;}
-public:
-	UCSMovementComponent();
+	FVector GetUntrotatedClimbVelocity() const;
+
 
 protected:
+	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	virtual void OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode) override;
 	virtual void PhysCustom(float deltaTime, int32 Iterations) override;
@@ -62,12 +70,17 @@ private:
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category = "Character Movement: Climbing", meta = (AllowPrivateAccess = "true"))
 	float MaxClimbAcceleration = 300.f;
 
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category = "Character Movement: Animation", meta = (AllowPrivateAccess = "true"))
+	UAnimMontage* IdleToClimbMontage;
 
 private:
 	TArray<FHitResult> ClimbableSurfacesTraceResults;
 	
 	FVector CurrentClimbableSurfaceLocation;
 	FVector CurrentClimbableSurfaceNormal;
+
+	UPROPERTY()
+	UAnimInstance* CharacterAnimInstance;
 
 	
 private:
@@ -86,7 +99,14 @@ private:
 
 	
 	bool ShouldStopClimbing();
+	bool CheckHasReachedFloor();
+	bool CheckHasReachedLedge();
 
 	FQuat GetClimbRotation(float DeltaTime);
 	void SnapMovementToClimbableSurface(float DeltaTime);
+
+	void PlayMontage(UAnimMontage* MontageToPlay);
+
+	UFUNCTION()
+	void OnClimbMontageEnded(UAnimMontage* Montage, bool bInterrupted);
 };

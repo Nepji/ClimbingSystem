@@ -33,6 +33,12 @@ protected:
 	UPROPERTY(VisibleAnywhere,BlueprintReadOnly,Category = Reference, meta = (AllowPrivateAccess = "true"))
 	bool bIsFalling;
 
+	UPROPERTY(VisibleAnywhere,BlueprintReadOnly,Category = Reference, meta = (AllowPrivateAccess = "true"))
+	bool bIsClimbing;
+
+	UPROPERTY(VisibleAnywhere,BlueprintReadOnly,Category = Reference, meta = (AllowPrivateAccess = "true"))
+	FVector ClimbingVelocity;
+
 private:
 	UPROPERTY()
 	ACSCharacter* ClimbingSystemCharacter;
@@ -45,5 +51,7 @@ private:
 	void GetAirSpeed();
 	void GetShouldMove();
 	void GetIsFalling();
+	void GetIsClimbing();
+	void GetClimbingVelocity();
 	
 };

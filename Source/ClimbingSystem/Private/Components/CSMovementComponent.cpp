@@ -4,6 +4,7 @@
 #include "Components/CapsuleComponent.h"
 #include "Dev/DebugHelper.h"
 #include "GameFramework/Character.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "Kismet/KismetSystemLibrary.h"
 
 void UCSMovementComponent::ToggleClimbing(bool bEnableClimb)
@@ -11,7 +12,7 @@ void UCSMovementComponent::ToggleClimbing(bool bEnableClimb)
 	if (bEnableClimb && CanStartClimbing())
 	{
 		Debug::Print(TEXT("Can Start  climbing"));
-		StartClimbing();
+		PlayMontage(IdleToClimbMontage);
 	}
 	else
 	{
@@ -26,6 +27,22 @@ bool UCSMovementComponent::IsClimbing() const
 UCSMovementComponent::UCSMovementComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
+}
+FVector UCSMovementComponent::GetUntrotatedClimbVelocity() const
+{
+	return UKismetMathLibrary::Quat_UnrotateVector(UpdatedComponent->GetComponentQuat(), Velocity);
+}
+void UCSMovementComponent::BeginPlay()
+{
+	Super::BeginPlay();
+
+	CharacterAnimInstance = CharacterOwner->GetMesh()->GetAnimInstance();
+
+	if (CharacterAnimInstance)
+	{
+		CharacterAnimInstance->OnMontageEnded.AddDynamic(this, &UCSMovementComponent::OnClimbMontageEnded);
+		CharacterAnimInstance->OnMontageBlendingOut.AddDynamic(this, &UCSMovementComponent::OnClimbMontageEnded);
+	}
 }
 
 void UCSMovementComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -202,7 +219,7 @@ void UCSMovementComponent::PhysClimb(float deltaTime, int32 Iterations)
 
 	ApplyRootMotionToVelocity(deltaTime);
 
-	FVector OldLocation = UpdatedComponent->GetComponentLocation();
+	const FVector OldLocation = UpdatedComponent->GetComponentLocation();
 	const FVector Adjusted = Velocity * deltaTime;
 	FHitResult Hit(1.f);
 
@@ -242,7 +259,7 @@ void UCSMovementComponent::ProcessClimbableSurfaceInfo()
 }
 bool UCSMovementComponent::ShouldStopClimbing()
 {
-	if (ClimbableSurfacesTraceResults.IsEmpty())
+	if (ClimbableSurfacesTraceResults.IsEmpty() || CheckHasReachedFloor() || CheckHasReachedLedge())
 	{
 		return true;
 	}
@@ -251,6 +268,47 @@ bool UCSMovementComponent::ShouldStopClimbing()
 	const float DegreeDiff = FMath::RadiansToDegrees(FMath::Acos(DotResult));
 
 	return DegreeDiff <= MaxDegreeToSurface;
+}
+bool UCSMovementComponent::CheckHasReachedFloor()
+{
+	const FVector DownVector = -UpdatedComponent->GetUpVector();
+	const FVector StartOffset = DownVector * StartOffset;
+
+	const FVector Start = UpdatedComponent->GetComponentLocation() + StartOffset;
+	const FVector End = Start + DownVector;
+
+	TArray<FHitResult> FloorHitResults = DoCapsuleTraceMultiByObject(Start, End);
+
+	if (FloorHitResults.IsEmpty())
+	{
+		return false;
+	}
+
+	const float ToFloorDistanceLimit = -10.f;
+
+	for (const FHitResult& FloorHit : FloorHitResults)
+	{
+		if (FVector::Parallel(FloorHit.ImpactNormal, -FVector::UpVector) && GetUntrotatedClimbVelocity().Z < ToFloorDistanceLimit)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+bool UCSMovementComponent::CheckHasReachedLedge()
+{
+	const FHitResult EyeTraceLine = TraceFromEyeHeight(EyeTraceDistance);
+	if(EyeTraceLine.bBlockingHit)
+	{
+		return false;
+	}
+	
+	const float ToFloorDistanceLimit = 10.f;
+	
+	const FVector Start = EyeTraceLine.TraceEnd;
+	const FVector End = Start + -FVector::UpVector * ToFloorDistanceLimit;
+	
+	return DoLineSingleByObject(Start,End).bBlockingHit;
 }
 FQuat UCSMovementComponent::GetClimbRotation(float DeltaTime)
 {
@@ -277,4 +335,20 @@ void UCSMovementComponent::SnapMovementToClimbableSurface(float DeltaTime)
 		SnapVector * DeltaTime * MaxClimbSpeed, //
 		UpdatedComponent->GetComponentQuat(),	//
 		true);
+}
+void UCSMovementComponent::PlayMontage(UAnimMontage* MontageToPlay)
+{
+	if (!MontageToPlay || !CharacterAnimInstance || CharacterAnimInstance->IsAnyMontagePlaying())
+	{
+		return;
+	}
+
+	CharacterAnimInstance->Montage_Play(MontageToPlay);
+}
+void UCSMovementComponent::OnClimbMontageEnded(UAnimMontage* Montage, bool bInterrupted)
+{
+	if (Montage == IdleToClimbMontage)
+	{
+		StartClimbing();
+	}
 }
