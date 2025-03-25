@@ -42,6 +42,8 @@ protected:
 	virtual float GetMaxSpeed() const override;
 	virtual float GetMaxAcceleration() const override;
 
+	virtual FVector ConstrainAnimRootMotionVelocity(const FVector& RootMotionVelocity, const FVector& CurrentVelocity) const override;
+
 private:
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category = "Character Movement: Climbing", meta = (AllowPrivateAccess = "true"))
 	TArray<TEnumAsByte<EObjectTypeQuery>> ClimbableSurfaceTraceTypes;
@@ -72,6 +74,12 @@ private:
 
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category = "Character Movement: Animation", meta = (AllowPrivateAccess = "true"))
 	UAnimMontage* IdleToClimbMontage;
+	
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category = "Character Movement: Animation", meta = (AllowPrivateAccess = "true"))
+	UAnimMontage* IdleToHangMontage;
+
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category = "Character Movement: Animation", meta = (AllowPrivateAccess = "true"))
+	UAnimMontage* ClimbToTopMontage;
 
 private:
 	TArray<FHitResult> ClimbableSurfacesTraceResults;
@@ -88,8 +96,10 @@ private:
 	FHitResult DoLineSingleByObject(const FVector& Start, const FVector& End, bool bShowDebugShape = false, bool bDrawPersistentShapes = false);
 
 	bool TraceClimbableSurfaces();
+	bool TraceHangSurfaces(float TraceDistance, float TraceStartOffset = 0.f,bool bShowDebugShape = false,bool bDrawPersistantShapes = false);
 	FHitResult TraceFromEyeHeight(float TraceDistance, float TraceStartOffset = 0.f,bool bShowDebugShape = false,bool bDrawPersistantShapes = false);
 	bool CanStartClimbing();
+	bool CanStartHanging();
 
 	void StartClimbing();
 	void StopClimbing();

@@ -9,10 +9,16 @@
 
 void UCSMovementComponent::ToggleClimbing(bool bEnableClimb)
 {
-	if (bEnableClimb && CanStartClimbing())
+	if (bEnableClimb)
 	{
-		Debug::Print(TEXT("Can Start  climbing"));
-		PlayMontage(IdleToClimbMontage);
+		if(CanStartClimbing())
+		{
+			PlayMontage(IdleToClimbMontage);
+		}
+		else if(CanStartHanging())
+		{
+			PlayMontage(IdleToHangMontage);
+		}
 	}
 	else
 	{
@@ -96,6 +102,16 @@ float UCSMovementComponent::GetMaxAcceleration() const
 	}
 	return Super::GetMaxAcceleration();
 }
+FVector UCSMovementComponent::ConstrainAnimRootMotionVelocity(const FVector& RootMotionVelocity, const FVector& CurrentVelocity) const
+{
+	const bool IsPlayingRMMontage = IsFalling() && CharacterAnimInstance && CharacterAnimInstance->IsAnyMontagePlaying();
+
+	if (IsPlayingRMMontage)
+	{
+		return RootMotionVelocity;
+	}
+	return Super::ConstrainAnimRootMotionVelocity(RootMotionVelocity, CurrentVelocity);
+}
 TArray<FHitResult> UCSMovementComponent::DoCapsuleTraceMultiByObject(const FVector& Start, const FVector& End, bool bShowDebugShape, bool bDrawPersistentShapes)
 {
 	TArray<FHitResult> OutCapsuleTraceHitResults;
@@ -163,7 +179,35 @@ bool UCSMovementComponent::TraceClimbableSurfaces()
 	const FVector Start = UpdatedComponent->GetComponentLocation() + StartOffset;
 	const FVector End = Start + UpdatedComponent->GetForwardVector();
 
-	ClimbableSurfacesTraceResults = DoCapsuleTraceMultiByObject(Start, End, true);
+	ClimbableSurfacesTraceResults = DoCapsuleTraceMultiByObject(Start, End);
+
+	return !ClimbableSurfacesTraceResults.IsEmpty();
+}
+bool UCSMovementComponent::TraceHangSurfaces(float TraceDistance, float TraceStartOffset, bool bShowDebugShape, bool bDrawPersistantShapes)
+{
+	const FVector CapsuleStart = UpdatedComponent->GetComponentLocation();
+	const FVector ForwardDirection = UpdatedComponent->GetForwardVector();
+	const FVector CapsuleEnd = CapsuleStart + ForwardDirection * TraceDistance;
+
+	if (DoLineSingleByObject(CapsuleStart, CapsuleEnd).bBlockingHit)
+	{
+		return false;
+	}
+
+	//Full Capsule + Half + Space = 4X multiplier
+	const float ToFloorDistanceLimit = CapsuleHalfHeight * 4;
+	const FVector ToFloorEnd = CapsuleEnd + FVector::DownVector * ToFloorDistanceLimit;
+	
+	FHitResult FloorHit = DoLineSingleByObject(CapsuleEnd, ToFloorEnd);
+	if (FloorHit.bBlockingHit)
+	{
+		return false;
+	}
+
+	const FVector ToWallStart = ToFloorEnd;
+	const FVector ToWallEnd = ToWallStart + ForwardDirection * TraceDistance;
+
+	ClimbableSurfacesTraceResults = DoCapsuleTraceMultiByObject(ToWallStart, ToWallEnd, true);
 
 	return !ClimbableSurfacesTraceResults.IsEmpty();
 }
@@ -173,18 +217,25 @@ FHitResult UCSMovementComponent::TraceFromEyeHeight(float TraceDistance, float T
 	const FVector EyeHeightOffset = UpdatedComponent->GetUpVector() * (CharacterOwner->BaseEyeHeight + TraceStartOffset);
 	const FVector Start = ComponentLocation + EyeHeightOffset;
 	const FVector End = Start + UpdatedComponent->GetForwardVector() * TraceDistance;
+	
 
-	return DoLineSingleByObject(Start, End, true, true);
+	return DoLineSingleByObject(Start, End);
 }
 bool UCSMovementComponent::CanStartClimbing()
 {
-	if (IsFalling()
-		|| !TraceClimbableSurfaces()
+	if (IsFalling() || !TraceClimbableSurfaces()
 		|| !TraceFromEyeHeight(EyeTraceDistance).bBlockingHit)
 	{
 		return false;
 	}
-
+	return true;
+}
+bool UCSMovementComponent::CanStartHanging()
+{
+	if (IsFalling() || !TraceHangSurfaces(EyeTraceDistance))
+	{
+		return false;
+	}
 	return true;
 }
 void UCSMovementComponent::StartClimbing()
@@ -205,7 +256,7 @@ void UCSMovementComponent::PhysClimb(float deltaTime, int32 Iterations)
 	TraceClimbableSurfaces();
 	ProcessClimbableSurfaceInfo();
 
-	if (ShouldStopClimbing())
+	if (ShouldStopClimbing() || CheckHasReachedFloor())
 	{
 		StopClimbing();
 	}
@@ -237,6 +288,11 @@ void UCSMovementComponent::PhysClimb(float deltaTime, int32 Iterations)
 	}
 
 	SnapMovementToClimbableSurface(deltaTime);
+
+	if (CheckHasReachedLedge())
+	{
+		PlayMontage(ClimbToTopMontage);
+	}
 }
 void UCSMovementComponent::ProcessClimbableSurfaceInfo()
 {
@@ -259,7 +315,7 @@ void UCSMovementComponent::ProcessClimbableSurfaceInfo()
 }
 bool UCSMovementComponent::ShouldStopClimbing()
 {
-	if (ClimbableSurfacesTraceResults.IsEmpty() || CheckHasReachedFloor() || CheckHasReachedLedge())
+	if (ClimbableSurfacesTraceResults.IsEmpty())
 	{
 		return true;
 	}
@@ -298,17 +354,17 @@ bool UCSMovementComponent::CheckHasReachedFloor()
 bool UCSMovementComponent::CheckHasReachedLedge()
 {
 	const FHitResult EyeTraceLine = TraceFromEyeHeight(EyeTraceDistance);
-	if(EyeTraceLine.bBlockingHit)
+	if (EyeTraceLine.bBlockingHit)
 	{
 		return false;
 	}
-	
-	const float ToFloorDistanceLimit = 10.f;
-	
+
+	const float ToFloorDistanceLimit = 40.f;
+
 	const FVector Start = EyeTraceLine.TraceEnd;
 	const FVector End = Start + -FVector::UpVector * ToFloorDistanceLimit;
-	
-	return DoLineSingleByObject(Start,End).bBlockingHit;
+
+	return DoLineSingleByObject(Start, End).bBlockingHit;
 }
 FQuat UCSMovementComponent::GetClimbRotation(float DeltaTime)
 {
@@ -347,8 +403,13 @@ void UCSMovementComponent::PlayMontage(UAnimMontage* MontageToPlay)
 }
 void UCSMovementComponent::OnClimbMontageEnded(UAnimMontage* Montage, bool bInterrupted)
 {
-	if (Montage == IdleToClimbMontage)
+	if (Montage == IdleToClimbMontage || Montage == IdleToHangMontage)
 	{
 		StartClimbing();
+		StopMovementImmediately();
+	}
+	if(Montage == ClimbToTopMontage)
+	{
+		SetMovementMode(MOVE_Walking);
 	}
 }
