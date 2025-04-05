@@ -6,6 +6,7 @@ public class ClimbingSystem : ModuleRules
 {
 	public ClimbingSystem(ReadOnlyTargetRules Target) : base(Target)
 	{
+		PrivateDependencyModuleNames.AddRange(new string[] { "MotionWarping" });
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
 		PublicDependencyModuleNames.AddRange(new string[]
