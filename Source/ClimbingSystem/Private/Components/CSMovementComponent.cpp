@@ -62,8 +62,6 @@ void UCSMovementComponent::BeginPlay()
 void UCSMovementComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-	// TraceClimbableSurfaces();
-	// TraceFromEyeHeight(EyeTraceDistance);
 }
 void UCSMovementComponent::OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode)
 {
@@ -71,6 +69,8 @@ void UCSMovementComponent::OnMovementModeChanged(EMovementMode PreviousMovementM
 	{
 		bOrientRotationToMovement = false;
 		CharacterOwner->GetCapsuleComponent()->SetCapsuleHalfHeight(CapsuleHalfHeight);
+
+		OnEnterClimbState.ExecuteIfBound();
 	}
 
 	if (PreviousMovementMode == MOVE_Custom && PreviousCustomMode == ECustomMovementMode::MOVE_Climb)
@@ -81,6 +81,8 @@ void UCSMovementComponent::OnMovementModeChanged(EMovementMode PreviousMovementM
 		const FRotator CleanStandRotation = FRotator(0.f, DirtyRotator.Yaw, 0.f);
 		UpdatedComponent->SetRelativeRotation(CleanStandRotation);
 		StopMovementImmediately();
+
+		OnExitClimbState.ExecuteIfBound();
 	}
 
 	Super::OnMovementModeChanged(PreviousMovementMode, PreviousCustomMode);
@@ -411,7 +413,7 @@ bool UCSMovementComponent::CanStartVaulting(FVector& OutVaultStartPosition, FVec
 		const FVector Start = ComponentLocation + ComponentUpVector * 100.f + ComponentForward * LengthMultiplier;
 		const FVector End = Start + ComponentDawnVector * LengthMultiplier;
 
-		FHitResult VaultHitTrace = DoLineSingleByObject(Start, End, true, true);
+		FHitResult VaultHitTrace = DoLineSingleByObject(Start, End);
 
 		if (VaultHitTrace.bBlockingHit)
 		{

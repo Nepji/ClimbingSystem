@@ -10,6 +10,8 @@ class ACSCharacter;
 class UAnimMontage;
 class UAnimInstance;
 
+DECLARE_DELEGATE(FOnEnterClimbState)
+DECLARE_DELEGATE(FOnExitClimbState)
 
 UENUM(BlueprintType)
 namespace ECustomMovementMode
@@ -24,7 +26,10 @@ UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class CLIMBINGSYSTEM_API UCSMovementComponent : public UCharacterMovementComponent
 {
 	GENERATED_BODY()
-
+public:
+	FOnEnterClimbState OnEnterClimbState;
+	FOnExitClimbState OnExitClimbState;
+	
 public:
 	UCSMovementComponent();
 	

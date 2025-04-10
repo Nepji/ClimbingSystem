@@ -65,16 +65,14 @@ void ACSCharacter::BeginPlay()
 	// Call the base class
 	Super::BeginPlay();
 
-	// Add Input Mapping Context
-	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
-	{
-		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
-		{
-			Subsystem->AddMappingContext(DefaultMappingContext, 0);
-		}
-	}
+	AddInputMappingContext(DefaultMappingContext);
 
-	Debug::Print(TEXT("Debug Working"));
+
+	if(MovementComponent)
+	{
+		MovementComponent->OnEnterClimbState.BindUObject(this,&ThisClass::OnPlayerEnterClimbState);
+		MovementComponent->OnExitClimbState.BindUObject(this,&ThisClass::OnPlayerExitClimbState);
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -91,8 +89,9 @@ void ACSCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
 
 		// Moving
-		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ACSCharacter::Move);
-
+		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ACSCharacter::HandleGroundMovementInput);
+		EnhancedInputComponent->BindAction(ClimbMoveAction, ETriggerEvent::Triggered, this, &ACSCharacter::HandleClimbMovementInput);
+		
 		// Looking
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ACSCharacter::Look);
 
@@ -103,40 +102,20 @@ void ACSCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 		UE_LOG(LogTemplateCharacter, Error, TEXT("'%s' Failed to find an Enhanced Input component! This template is built to use the Enhanced Input system. If you intend to use the legacy system, then you will need to update this C++ file."), *GetNameSafe(this));
 	}
 }
-void ACSCharacter::Move(const FInputActionValue& Value)
-{
-	if (!MovementComponent)
-	{
-		return;
-	}
 
-	if (MovementComponent->IsClimbing())
-	{
-		HandleClimbMovementInput(Value);
-	}
-	else
-	{
-		HandleGroundMovementInput(Value);
-	}
-}
 void ACSCharacter::HandleGroundMovementInput(const FInputActionValue& Value)
 {
-	// input is a Vector2D
 	const FVector2D MovementVector = Value.Get<FVector2D>();
 
 	if (Controller != nullptr)
 	{
-		// find out which way is forward
 		const FRotator Rotation = Controller->GetControlRotation();
 		const FRotator YawRotation(0, Rotation.Yaw, 0);
 
-		// get forward vector
 		const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
 
-		// get right vector
 		const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 
-		// add movement
 		AddMovementInput(ForwardDirection, MovementVector.Y);
 		AddMovementInput(RightDirection, MovementVector.X);
 	}
@@ -159,12 +138,10 @@ void ACSCharacter::HandleClimbMovementInput(const FInputActionValue& Value)
 
 void ACSCharacter::Look(const FInputActionValue& Value)
 {
-	// input is a Vector2D
 	FVector2D LookAxisVector = Value.Get<FVector2D>();
 
 	if (Controller != nullptr)
 	{
-		// add yaw and pitch input to controller
 		AddControllerYawInput(LookAxisVector.X);
 		AddControllerPitchInput(LookAxisVector.Y);
 	}
@@ -177,4 +154,40 @@ void ACSCharacter::OnClimbActionStarted(const FInputActionValue& Value)
 	}
 
 	MovementComponent->ToggleClimbing(!MovementComponent->IsClimbing());
+}
+void ACSCharacter::OnPlayerEnterClimbState()
+{
+	AddInputMappingContext(ClimbMappingContext,1);
+}
+void ACSCharacter::OnPlayerExitClimbState()
+{
+	RemoveInputMappingContext(ClimbMappingContext);
+}
+void ACSCharacter::AddInputMappingContext(UInputMappingContext* ContextToAdd, int32 InPriority)
+{
+	if(!ContextToAdd)
+	{
+		return;
+	}
+	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
+	{
+		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
+		{
+			Subsystem->AddMappingContext(ContextToAdd, InPriority);
+		}
+	}
+}
+void ACSCharacter::RemoveInputMappingContext(UInputMappingContext* ContextToAdd)
+{
+	if(!ContextToAdd)
+	{
+		return;
+	}
+	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
+	{
+		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
+		{
+			Subsystem->RemoveMappingContext(ContextToAdd);
+		}
+	}
 }
