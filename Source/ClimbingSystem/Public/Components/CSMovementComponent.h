@@ -6,6 +6,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "CSMovementComponent.generated.h"
 
+class ACSCharacter;
 class UAnimMontage;
 class UAnimInstance;
 
@@ -81,6 +82,9 @@ private:
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category = "Character Movement: Animation", meta = (AllowPrivateAccess = "true"))
 	UAnimMontage* ClimbToTopMontage;
 
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category = "Character Movement: Animation", meta = (AllowPrivateAccess = "true"))
+	UAnimMontage* VaultMontage;
+
 private:
 	TArray<FHitResult> ClimbableSurfacesTraceResults;
 	
@@ -89,6 +93,9 @@ private:
 
 	UPROPERTY()
 	UAnimInstance* CharacterAnimInstance;
+
+	UPROPERTY()
+	ACSCharacter* PlayerCharacter;
 
 	
 private:
@@ -106,11 +113,13 @@ private:
 
 	void PhysClimb(float deltaTime, int32 Iterations);
 	void ProcessClimbableSurfaceInfo();
-
 	
 	bool ShouldStopClimbing();
 	bool CheckHasReachedFloor();
 	bool CheckHasReachedLedge();
+
+	void TryStartVaulting();
+	bool CanStartVaulting(FVector& OutVaultStartPosition, FVector& OutVaultLandPosition);
 
 	FQuat GetClimbRotation(float DeltaTime);
 	void SnapMovementToClimbableSurface(float DeltaTime);
@@ -119,4 +128,6 @@ private:
 
 	UFUNCTION()
 	void OnClimbMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+
+	void SetMotionWarpTarget(const FName& InWarpTargetName, const FVector& InTargetPosition);
 };

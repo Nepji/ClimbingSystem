@@ -1,6 +1,8 @@
 ﻿
 #include "Components/CSMovementComponent.h"
 
+#include "CSCharacter.h"
+#include "MotionWarpingComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Dev/DebugHelper.h"
 #include "GameFramework/Character.h"
@@ -11,16 +13,20 @@ void UCSMovementComponent::ToggleClimbing(bool bEnableClimb)
 {
 	if (bEnableClimb)
 	{
-		if(CanStartClimbing())
+		if (CanStartClimbing())
 		{
 			PlayMontage(IdleToClimbMontage);
 		}
-		else if(CanStartHanging())
+		else if (CanStartHanging())
 		{
 			PlayMontage(IdleToHangMontage);
 		}
+		else
+		{
+			TryStartVaulting();
+		}
 	}
-	else
+	if (!bEnableClimb)
 	{
 		Debug::Print(TEXT("Can NOT Start  climbing"));
 		StopClimbing();
@@ -49,6 +55,8 @@ void UCSMovementComponent::BeginPlay()
 		CharacterAnimInstance->OnMontageEnded.AddDynamic(this, &UCSMovementComponent::OnClimbMontageEnded);
 		CharacterAnimInstance->OnMontageBlendingOut.AddDynamic(this, &UCSMovementComponent::OnClimbMontageEnded);
 	}
+
+	PlayerCharacter = Cast<ACSCharacter>(CharacterOwner);
 }
 
 void UCSMovementComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -194,10 +202,10 @@ bool UCSMovementComponent::TraceHangSurfaces(float TraceDistance, float TraceSta
 		return false;
 	}
 
-	//Full Capsule + Half + Space = 4X multiplier
+	// Full Capsule + Half + Space = 4X multiplier
 	const float ToFloorDistanceLimit = CapsuleHalfHeight * 4;
 	const FVector ToFloorEnd = CapsuleEnd + FVector::DownVector * ToFloorDistanceLimit;
-	
+
 	FHitResult FloorHit = DoLineSingleByObject(CapsuleEnd, ToFloorEnd);
 	if (FloorHit.bBlockingHit)
 	{
@@ -217,7 +225,6 @@ FHitResult UCSMovementComponent::TraceFromEyeHeight(float TraceDistance, float T
 	const FVector EyeHeightOffset = UpdatedComponent->GetUpVector() * (CharacterOwner->BaseEyeHeight + TraceStartOffset);
 	const FVector Start = ComponentLocation + EyeHeightOffset;
 	const FVector End = Start + UpdatedComponent->GetForwardVector() * TraceDistance;
-	
 
 	return DoLineSingleByObject(Start, End);
 }
@@ -366,6 +373,65 @@ bool UCSMovementComponent::CheckHasReachedLedge()
 
 	return DoLineSingleByObject(Start, End).bBlockingHit;
 }
+void UCSMovementComponent::TryStartVaulting()
+{
+	FVector VaultStartPosition;
+	FVector VaultLandPosition;
+
+	if (!CanStartVaulting(VaultStartPosition, VaultLandPosition))
+	{
+		return;
+	}
+
+	SetMotionWarpTarget(FName("VaultStartPoint"),VaultStartPosition);
+	SetMotionWarpTarget(FName("VaultLandPoint"),VaultLandPosition);
+
+	StartClimbing();
+	PlayMontage(VaultMontage);
+}
+bool UCSMovementComponent::CanStartVaulting(FVector& OutVaultStartPosition, FVector& OutVaultLandPosition)
+{
+	if (IsFalling())
+	{
+		return false;
+	}
+
+	OutVaultStartPosition = FVector::ZeroVector;
+	OutVaultLandPosition = FVector::ZeroVector;
+
+	const FVector ComponentLocation = UpdatedComponent->GetComponentLocation();
+	const FVector ComponentForward = UpdatedComponent->GetForwardVector();
+	const FVector ComponentUpVector = UpdatedComponent->GetUpVector();
+	const FVector ComponentDawnVector = -UpdatedComponent->GetUpVector();
+
+	const int32 MaxVaultTrace = 4;
+	for (int32 i = 0; i < MaxVaultTrace; i++)
+	{
+		const float LengthMultiplier = 100.f * (i + 1);
+		const FVector Start = ComponentLocation + ComponentUpVector * 100.f + ComponentForward * LengthMultiplier;
+		const FVector End = Start + ComponentDawnVector * LengthMultiplier;
+
+		FHitResult VaultHitTrace = DoLineSingleByObject(Start, End, true, true);
+
+		if (VaultHitTrace.bBlockingHit)
+		{
+			if (i == 0)
+			{
+				OutVaultStartPosition = VaultHitTrace.ImpactPoint;
+			}
+			else if (i == MaxVaultTrace - 1)
+			{
+				OutVaultLandPosition = VaultHitTrace.ImpactPoint;
+			}
+		}
+	}
+
+	if (OutVaultStartPosition != FVector::ZeroVector && OutVaultLandPosition != FVector::ZeroVector)
+	{
+		return true;
+	}
+	return false;
+}
 FQuat UCSMovementComponent::GetClimbRotation(float DeltaTime)
 {
 	const FQuat CurrentQuat = UpdatedComponent->GetComponentQuat();
@@ -408,8 +474,16 @@ void UCSMovementComponent::OnClimbMontageEnded(UAnimMontage* Montage, bool bInte
 		StartClimbing();
 		StopMovementImmediately();
 	}
-	if(Montage == ClimbToTopMontage)
+	if (Montage == ClimbToTopMontage || Montage == VaultMontage)
 	{
 		SetMovementMode(MOVE_Walking);
 	}
+}
+void UCSMovementComponent::SetMotionWarpTarget(const FName& InWarpTargetName, const FVector& InTargetPosition)
+{
+	if (!PlayerCharacter)
+	{
+		return;
+	}
+	PlayerCharacter->GetMotionWarpingComponent()->AddOrUpdateWarpTargetFromLocation(InWarpTargetName, InTargetPosition);
 }
