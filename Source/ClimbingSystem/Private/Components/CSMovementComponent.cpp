@@ -32,6 +32,25 @@ void UCSMovementComponent::ToggleClimbing(bool bEnableClimb)
 		StopClimbing();
 	}
 }
+void UCSMovementComponent::RequestHopping()
+{
+	const FVector UnrotatedLastInputVector = UKismetMathLibrary::Quat_UnrotateVector(UpdatedComponent->GetComponentQuat(),GetLastInputVector());
+
+	const float DotResult = FVector::DotProduct(UnrotatedLastInputVector.GetSafeNormal(),FVector::UpVector);
+
+	if(DotResult >= 0.9f)
+	{
+		
+	}
+	else if(DotResult <= -0.9f)
+	{
+		
+	}
+	else
+	{
+		
+	}
+}
 bool UCSMovementComponent::IsClimbing() const
 {
 	return MovementMode == MOVE_Custom && CustomMovementMode == ECustomMovementMode::MOVE_Climb;

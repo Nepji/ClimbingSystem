@@ -55,9 +55,7 @@ ACSCharacter::ACSCharacter(const FObjectInitializer& ObjInit)
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation
 	FollowCamera->bUsePawnControlRotation = false;								// Camera does not rotate relative to arm
 
-
 	MotionWarpingComponent = CreateDefaultSubobject<UMotionWarpingComponent>("MotionWarping");
-	
 }
 
 void ACSCharacter::BeginPlay()
@@ -67,11 +65,10 @@ void ACSCharacter::BeginPlay()
 
 	AddInputMappingContext(DefaultMappingContext);
 
-
-	if(MovementComponent)
+	if (MovementComponent)
 	{
-		MovementComponent->OnEnterClimbState.BindUObject(this,&ThisClass::OnPlayerEnterClimbState);
-		MovementComponent->OnExitClimbState.BindUObject(this,&ThisClass::OnPlayerExitClimbState);
+		MovementComponent->OnEnterClimbState.BindUObject(this, &ThisClass::OnPlayerEnterClimbState);
+		MovementComponent->OnExitClimbState.BindUObject(this, &ThisClass::OnPlayerExitClimbState);
 	}
 }
 
@@ -91,11 +88,12 @@ void ACSCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 		// Moving
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ACSCharacter::HandleGroundMovementInput);
 		EnhancedInputComponent->BindAction(ClimbMoveAction, ETriggerEvent::Triggered, this, &ACSCharacter::HandleClimbMovementInput);
-		
+
 		// Looking
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ACSCharacter::Look);
 
 		EnhancedInputComponent->BindAction(ClimbAction, ETriggerEvent::Started, this, &ACSCharacter::OnClimbActionStarted);
+		EnhancedInputComponent->BindAction(ClimbHopAction, ETriggerEvent::Started, this, &ACSCharacter::OnClimbHopActionStarted);
 	}
 	else
 	{
@@ -138,7 +136,7 @@ void ACSCharacter::HandleClimbMovementInput(const FInputActionValue& Value)
 
 void ACSCharacter::Look(const FInputActionValue& Value)
 {
-	FVector2D LookAxisVector = Value.Get<FVector2D>();
+	const FVector2D LookAxisVector = Value.Get<FVector2D>();
 
 	if (Controller != nullptr)
 	{
@@ -155,21 +153,29 @@ void ACSCharacter::OnClimbActionStarted(const FInputActionValue& Value)
 
 	MovementComponent->ToggleClimbing(!MovementComponent->IsClimbing());
 }
+void ACSCharacter::OnClimbHopActionStarted(const FInputActionValue& Value)
+{
+	if(!MovementComponent)
+	{
+		return;
+	}
+	MovementComponent->RequestHopping();
+}
 void ACSCharacter::OnPlayerEnterClimbState()
 {
-	AddInputMappingContext(ClimbMappingContext,1);
+	AddInputMappingContext(ClimbMappingContext, 1);
 }
 void ACSCharacter::OnPlayerExitClimbState()
 {
 	RemoveInputMappingContext(ClimbMappingContext);
 }
-void ACSCharacter::AddInputMappingContext(UInputMappingContext* ContextToAdd, int32 InPriority)
+void ACSCharacter::AddInputMappingContext(const UInputMappingContext* ContextToAdd, int32 InPriority)
 {
-	if(!ContextToAdd)
+	if (!ContextToAdd)
 	{
 		return;
 	}
-	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
+	if (const APlayerController* PlayerController = Cast<APlayerController>(Controller))
 	{
 		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
 		{
@@ -177,13 +183,13 @@ void ACSCharacter::AddInputMappingContext(UInputMappingContext* ContextToAdd, in
 		}
 	}
 }
-void ACSCharacter::RemoveInputMappingContext(UInputMappingContext* ContextToAdd)
+void ACSCharacter::RemoveInputMappingContext(const UInputMappingContext* ContextToAdd)
 {
-	if(!ContextToAdd)
+	if (!ContextToAdd)
 	{
 		return;
 	}
-	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
+	if (const APlayerController* PlayerController = Cast<APlayerController>(Controller))
 	{
 		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
 		{

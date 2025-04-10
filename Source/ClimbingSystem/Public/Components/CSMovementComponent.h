@@ -34,6 +34,7 @@ public:
 	UCSMovementComponent();
 	
 	void ToggleClimbing(bool bEnableClimb);
+	void RequestHopping();
 	bool IsClimbing() const;
 	FORCEINLINE FVector GetClimbableSurfaceNormal() const { return CurrentClimbableSurfaceNormal;}
 	FVector GetUntrotatedClimbVelocity() const;

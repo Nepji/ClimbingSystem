@@ -59,6 +59,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* ClimbAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	UInputAction* ClimbHopAction;
+
 protected:
 	void HandleGroundMovementInput(const FInputActionValue& Value);
 	void HandleClimbMovementInput(const FInputActionValue& Value);
@@ -66,12 +69,13 @@ protected:
 	void Look(const FInputActionValue& Value);
 
 	void OnClimbActionStarted(const FInputActionValue& Value);
+	void OnClimbHopActionStarted(const FInputActionValue& Value);
 
 	void OnPlayerEnterClimbState();
 	void OnPlayerExitClimbState();
 
-	void AddInputMappingContext(UInputMappingContext* ContextToAdd, int32 InPriority = 0);
-	void RemoveInputMappingContext(UInputMappingContext* ContextToAdd);
+	void AddInputMappingContext(const UInputMappingContext* ContextToAdd, int32 InPriority = 0);
+	void RemoveInputMappingContext(const UInputMappingContext* ContextToAdd);
 
 protected:
 	// APawn interface
