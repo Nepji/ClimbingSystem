@@ -79,6 +79,9 @@ private:
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category = "Character Movement: Climbing", meta = (AllowPrivateAccess = "true"))
 	float MaxClimbAcceleration = 300.f;
 
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category = "Character Movement: Climbing", meta = (AllowPrivateAccess = "true"))
+	float HopOffset = 250.f;
+
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category = "Character Movement: Animation", meta = (AllowPrivateAccess = "true"))
 	UAnimMontage* IdleToClimbMontage;
 	
@@ -90,6 +93,12 @@ private:
 
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category = "Character Movement: Animation", meta = (AllowPrivateAccess = "true"))
 	UAnimMontage* VaultMontage;
+
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category = "Character Movement: Animation", meta = (AllowPrivateAccess = "true"))
+	UAnimMontage* HopUpMontage;
+
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category = "Character Movement: Animation", meta = (AllowPrivateAccess = "true"))
+	UAnimMontage* HopDawnMontage;
 
 private:
 	TArray<FHitResult> ClimbableSurfacesTraceResults;
@@ -136,4 +145,10 @@ private:
 	void OnClimbMontageEnded(UAnimMontage* Montage, bool bInterrupted);
 
 	void SetMotionWarpTarget(const FName& InWarpTargetName, const FVector& InTargetPosition);
+
+	bool CanHop(FVector& OutHopUpStartPosition, float VerticalOffset = 100.f, bool HorizontalMovement = false);
+	
+	void HandleHopUp();
+
+	void HandleHopDawn();
 };

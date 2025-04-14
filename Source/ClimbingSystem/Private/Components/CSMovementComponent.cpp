@@ -38,18 +38,17 @@ void UCSMovementComponent::RequestHopping()
 
 	const float DotResult = FVector::DotProduct(UnrotatedLastInputVector.GetSafeNormal(),FVector::UpVector);
 
-	if(DotResult >= 0.9f)
+	//Point the direction Up\Dawn
+	const float DotAccuracy = 0.9f;
+	if(DotResult >= DotAccuracy)
 	{
-		
+		HandleHopUp();
 	}
-	else if(DotResult <= -0.9f)
+	else if(DotResult <= -DotAccuracy)
 	{
-		
+		HandleHopDawn();
 	}
-	else
-	{
-		
-	}
+
 }
 bool UCSMovementComponent::IsClimbing() const
 {
@@ -426,9 +425,11 @@ bool UCSMovementComponent::CanStartVaulting(FVector& OutVaultStartPosition, FVec
 	const FVector ComponentDawnVector = -UpdatedComponent->GetUpVector();
 
 	const int32 MaxVaultTrace = 4;
+	const float DistanceTo = 75.f;
+	
 	for (int32 i = 0; i < MaxVaultTrace; i++)
 	{
-		const float LengthMultiplier = 100.f * (i + 1);
+		const float LengthMultiplier = DistanceTo * (i + 1);
 		const FVector Start = ComponentLocation + ComponentUpVector * 100.f + ComponentForward * LengthMultiplier;
 		const FVector End = Start + ComponentDawnVector * LengthMultiplier;
 
@@ -508,3 +509,41 @@ void UCSMovementComponent::SetMotionWarpTarget(const FName& InWarpTargetName, co
 	}
 	PlayerCharacter->GetMotionWarpingComponent()->AddOrUpdateWarpTargetFromLocation(InWarpTargetName, InTargetPosition);
 }
+bool UCSMovementComponent::CanHop(FVector& OutHopUpStartPosition, float VerticalOffset, bool HorizontalMovement)
+{
+	// ChestOffset
+	const float TraceDistance = 100.f;
+	const float TraceStartOffset = -20.f;
+	FHitResult HopUpHit = TraceFromEyeHeight(TraceDistance, TraceStartOffset, true, true);
+
+	FHitResult SafetyLedgeHit = TraceFromEyeHeight(TraceDistance, VerticalOffset, true , true );
+	Debug::Print(TEXT("HELLO"));
+
+	if (HopUpHit.bBlockingHit && SafetyLedgeHit.bBlockingHit)
+	{
+		OutHopUpStartPosition = SafetyLedgeHit.ImpactPoint;
+		return true;
+	}
+	return false;
+}
+void UCSMovementComponent::HandleHopUp()
+{
+	FVector HopUpTargetPoint;
+	if(CanHop(HopUpTargetPoint,HopOffset))
+	{
+		SetMotionWarpTarget(FName("HopUpTargetPoint"),HopUpTargetPoint);
+		PlayMontage(HopUpMontage);
+	}
+}
+
+void UCSMovementComponent::HandleHopDawn()
+{
+	FVector HopDawnTargetPoint;
+	const float HopDawnOffset = -HopOffset;
+	if(CanHop(HopDawnTargetPoint,HopDawnOffset))
+	{
+		SetMotionWarpTarget(FName("HopDawnTargetPoint"),HopDawnTargetPoint);
+		PlayMontage(HopDawnMontage);
+	}
+}
+
