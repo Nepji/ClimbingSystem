@@ -6,9 +6,6 @@ A modular and responsive **Climbing System** built with **Unreal Engine 5** usin
 Designed for third-person adventure, platformer, and action games — it integrates seamlessly into existing character systems and environments.
 
 ## ⚡️ Quick start
-
-You can **download the latest build** from the [Releases](../../releases) section.
-
 > CONTROLS
 >W / A / S / D - Move
 Mouse X / Y - Look Around
