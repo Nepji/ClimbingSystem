@@ -31,7 +31,7 @@ protected:
 	bool bShouldMove;
 
 	UPROPERTY(VisibleAnywhere,BlueprintReadOnly,Category = Reference, meta = (AllowPrivateAccess = "true"))
-	bool bIsFalling;
+	bool bIsFalling ;
 
 	UPROPERTY(VisibleAnywhere,BlueprintReadOnly,Category = Reference, meta = (AllowPrivateAccess = "true"))
 	bool bIsClimbing;
@@ -41,10 +41,10 @@ protected:
 
 private:
 	UPROPERTY()
-	ACSCharacter* ClimbingSystemCharacter;
+	ACSCharacter* ClimbingSystemCharacter = nullptr;
 
 	UPROPERTY()
-	UCSMovementComponent* ClimbingMovementComponent;
+	UCSMovementComponent* ClimbingMovementComponent = nullptr;
 
 private:
 	void GetGroundSpeed();

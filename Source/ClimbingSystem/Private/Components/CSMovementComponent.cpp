@@ -426,11 +426,12 @@ bool UCSMovementComponent::CanStartVaulting(FVector& OutVaultStartPosition, FVec
 
 	const int32 MaxVaultTrace = 4;
 	const float DistanceTo = 75.f;
+	const float UpVectorMultiplier = 40.0f;
 	
 	for (int32 i = 0; i < MaxVaultTrace; i++)
 	{
 		const float LengthMultiplier = DistanceTo * (i + 1);
-		const FVector Start = ComponentLocation + ComponentUpVector * 100.f + ComponentForward * LengthMultiplier;
+		const FVector Start = ComponentLocation + ComponentUpVector * UpVectorMultiplier + ComponentForward * LengthMultiplier;
 		const FVector End = Start + ComponentDawnVector * LengthMultiplier;
 
 		FHitResult VaultHitTrace = DoLineSingleByObject(Start, End);
